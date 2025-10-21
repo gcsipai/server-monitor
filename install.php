@@ -1,11 +1,13 @@
 <?php
 // PHP hibaüzenetek megjelenítése a hibakereséshez
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+ini_set("display_errors", 1);
+ini_set("display_startup_errors", 1);
 error_reporting(E_ALL);
 
 // Függvény a beállítások mentésére a config.php-ba
 function save_config($host, $user, $pass, $name) {
+    // Ezzel a megoldással a PHP kiértékeli a változókat 
+    // (ami a Heredoc normál működése), és beírja a definiált értékeket.
     $content = <<<PHP
 <?php
 // PROJECT NÉV: Server-Monitor
@@ -14,39 +16,39 @@ function save_config($host, $user, $pass, $name) {
 // ---------------------------------------------
 // 1. Biztonsági és Munkamenet Beállítások
 // ---------------------------------------------
-ini_set('session.cookie_httponly', 1);
-ini_set('session.use_strict_mode', 1);
-ini_set('session.cookie_secure', (isset(\$_SERVER['HTTPS']) && \$_SERVER['HTTPS'] === 'on'));
-ini_set('session.cookie_samesite', 'Lax');
+ini_set("session.cookie_httponly", 1);
+ini_set("session.use_strict_mode", 1);
+ini_set("session.cookie_secure", (isset(\$_SERVER["HTTPS"]) && \$_SERVER["HTTPS"] === "on"));
+ini_set("session.cookie_samesite", "Lax");
 
 // Fejlesztési vagy éles mód
-define('ENVIRONMENT', 'development'); 
+define("ENVIRONMENT", "development"); 
 
-if (ENVIRONMENT === 'production') {
-    ini_set('display_errors', 0);
-    ini_set('log_errors', 1);
+if (ENVIRONMENT === "production") {
+    ini_set("display_errors", 0);
+    ini_set("log_errors", 1);
     error_reporting(0);
 } else {
-    ini_set('display_errors', 1);
-    ini_set('display_startup_errors', 1);
+    ini_set("display_errors", 1);
+    ini_set("display_startup_errors", 1);
     error_reporting(E_ALL);
 }
 
 // Alapvető konfiguráció
-define('PROJECT_NAME', 'Server-Monitor');
-define('VERSION', '1.0.0');
+define("PROJECT_NAME", "Server-Monitor");
+define("VERSION", "1.0.0");
 
 // ---------------------------------------------
-// 2. Adatbázis konfiguráció
+// 2. Adatbázis konfiguráció (FIXED: A PHP most a valós értéket illeszti be)
 // ---------------------------------------------
-define('DB_HOST', '$host');
-define('DB_USER', '$user');
-define('DB_PASS', '$pass'); 
-define('DB_NAME', '$name');
+define("DB_HOST", "{$host}");
+define("DB_USER", "{$user}");
+define("DB_PASS", "{$pass}"); 
+define("DB_NAME", "{$name}");
 
 // Kezdeti admin adatok
-define('DEFAULT_ADMIN_USER', 'admin');
-define('DEFAULT_ADMIN_PASS', 'admin');
+define("DEFAULT_ADMIN_USER", "admin");
+define("DEFAULT_ADMIN_PASS", "admin");
 
 // Munkamenet indítása
 if (session_status() === PHP_SESSION_NONE) {
@@ -63,8 +65,10 @@ try {
     \$pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, false); 
 } catch (PDOException \$e) {
     error_log("Adatbázis kapcsolat hiba: " . \$e->getMessage());
-    if (ENVIRONMENT === 'development') {
-        die("Adatbázis kapcsolat hiba: " . \$e->getMessage());
+    if (ENVIRONMENT === "development") {
+        // Átirányítás az install.php-ra, ha a kapcsolat megszakad a config.php létezése után
+        header("Location: install.php"); 
+        exit();
     } else {
         die("Adatbázis hiba. Kérjük, próbálja később.");
     }
@@ -73,11 +77,11 @@ try {
 // Alapértelmezett admin felhasználó inicializálása
 try {
     \$stmt = \$pdo->prepare("SELECT COUNT(*) FROM users WHERE username = :user");
-    \$stmt->execute(['user' => DEFAULT_ADMIN_USER]);
+    \$stmt->execute(["user" => DEFAULT_ADMIN_USER]);
     if (\$stmt->fetchColumn() == 0) {
         \$hash = password_hash(DEFAULT_ADMIN_PASS, PASSWORD_DEFAULT);
         \$stmt = \$pdo->prepare("INSERT INTO users (username, password_hash, is_admin) VALUES (:user, :hash, 1)");
-        \$stmt->execute(['user' => DEFAULT_ADMIN_USER, 'hash' => \$hash]);
+        \$stmt->execute(["user" => DEFAULT_ADMIN_USER, "hash" => \$hash]);
     }
 } catch (PDOException \$e) {
     error_log("Admin felhasználó inicializálási hiba: " . \$e->getMessage());
@@ -85,9 +89,9 @@ try {
 ?>
 PHP;
     // file_put_contents használata a tényleges íráshoz
-    if (file_put_contents('config.php', $content)) {
+    if (file_put_contents("config.php", $content)) {
         // Sikeres írás után állítsuk be a biztonságos jogosultságot 
-        chmod('config.php', 0644); 
+        chmod("config.php", 0644); 
         return true;
     }
     return false;
@@ -122,33 +126,35 @@ $sql_schema = [
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
     );"
-    // Eltávolítottam a kezdeti hosztok beszúrását
 ];
 
-$message = '';
-$error = '';
+$message = "";
+$error = "";
 $step = 1;
 
 // Ellenőrizzük, hogy a config.php már létezik-e (Javított logika)
-if (file_exists('config.php')) {
+if (file_exists("config.php")) {
     try {
         // Ellenőrizzük az aktív adatbázis kapcsolatot a meglévő config.php alapján
-        include 'config.php';
+        // A config.php-ban javítottuk a hibás kapcsolat esetén az átirányítást
+        require "config.php"; 
         $test_stmt = $pdo->query("SELECT 1"); 
         $message = "success|A **config.php** már létezik és az adatbázis kapcsolat aktív. Ha újra szeretné telepíteni, **törölje** a config.php fájlt!";
         $step = 2; 
     } catch (Exception $e) {
+        // Ha require "config.php" fut, de a kapcsolat hibás, az átirányít a config.php-n belül.
+        // Ez a catch blokk valószínűleg már nem fut le, de meghagyjuk a biztonság kedvéért.
         $error = "A config.php fájl létezik, de az adatbázis kapcsolat hibás: " . $e->getMessage() . ". Kérjük, törölje a config.php fájlt, és próbálja újra.";
         $step = 1; 
     }
 }
 
 // POST kérés feldolgozása
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 1) { 
-    $db_host = $_POST['db_host'] ?? '';
-    $db_user = $_POST['db_user'] ?? '';
-    $db_pass = $_POST['db_pass'] ?? '';
-    $db_name = $_POST['db_name'] ?? '';
+if ($_SERVER["REQUEST_METHOD"] === "POST" && $step === 1) { 
+    $db_host = $_POST["db_host"] ?? "";
+    $db_user = $_POST["db_user"] ?? "";
+    $db_pass = $_POST["db_pass"] ?? "";
+    $db_name = $_POST["db_name"] ?? "";
 
     // Validáció
     if (empty($db_host) || empty($db_user) || empty($db_name)) {
@@ -156,15 +162,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 1) {
     } else {
         try {
             // 1. Kapcsolódás a MySQL/MariaDB-hez az adatbázis NÉLKÜL
-            $pdo_conn = new PDO("mysql:host=$db_host", $db_user, $db_pass);
+            $pdo_conn = new PDO("mysql:host={$db_host}", $db_user, $db_pass);
             $pdo_conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
             // 2. Adatbázis létrehozása, ha nem létezik
-            $pdo_conn->exec("CREATE DATABASE IF NOT EXISTS `$db_name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
-            $message .= "Adatbázis ($db_name) sikeresen létrehozva vagy ellenőrizve.<br>";
+            // Használjuk a backtick-et (\`) a biztonságos idézéshez
+            $pdo_conn->exec("CREATE DATABASE IF NOT EXISTS `{$db_name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
+            $message .= "Adatbázis ({$db_name}) sikeresen létrehozva vagy ellenőrizve.<br>";
             
             // 3. Kapcsolódás az újonnan létrehozott/ellenőrzött adatbázishoz
-            $pdo_db = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
+            $pdo_db = new PDO("mysql:host={$db_host};dbname={$db_name}", $db_user, $db_pass);
             $pdo_db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
             // 4. Táblák létrehozása
@@ -191,12 +198,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 1) {
 }
 
 // Telepítő törlése kérésre (AJAX hívásból)
-if (isset($_GET['delete_installer']) && $step == 2) {
-    header('Content-Type: application/json');
+if (isset($_GET["delete_installer"]) && $step == 2) {
+    header("Content-Type: application/json");
     if (unlink(__FILE__)) {
-        echo json_encode(['success' => true]);
+        echo json_encode(["success" => true]);
     } else {
-        echo json_encode(['success' => false, 'error' => 'Törlési hiba.']);
+        echo json_encode(["success" => false, "error" => "Törlési hiba."]);
     }
     exit;
 }
@@ -220,10 +227,10 @@ if (isset($_GET['delete_installer']) && $step == 2) {
 
             <?php if ($message): 
                 // Csak akkor próbáljuk meg felosztani, ha tartalmazza az elválasztót
-                if (strpos($message, '|') !== false) {
-                    list($type, $msg) = explode('|', $message, 2);
+                if (strpos($message, "|") !== false) {
+                    list($type, $msg) = explode("|", $message, 2);
                 } else {
-                    $type = 'warning'; // Ha a telepítés meghiúsul, de van üzenet
+                    $type = "warning"; // Ha a telepítés meghiúsul, de van üzenet
                     $msg = $message;
                 }
             ?>
@@ -234,16 +241,16 @@ if (isset($_GET['delete_installer']) && $step == 2) {
                 <p class="lead">Kérjük, adja meg a MySQL/MariaDB adatbázis adatait. (A felhasználónak rendelkeznie kell adatbázis létrehozási joggal!)</p>
                 <form method="POST">
                     <div class="mb-3">
-                        <label class="form-label">Adatbázis Szerver (Host)</label>
-                        <input type="text" name="db_host" class="form-control" value="<?= $_POST['db_host'] ?? 'localhost'; ?>" required>
+                        <label class="form-label">Adatbázis Szerver (Host) - Ajánlott: 127.0.0.1</label>
+                        <input type="text" name="db_host" class="form-control" value="<?= $_POST["db_host"] ?? "127.0.0.1"; ?>" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Adatbázis Neve</label>
-                        <input type="text" name="db_name" class="form-control" value="<?= $_POST['db_name'] ?? 'server_monitor_db'; ?>" required>
+                        <input type="text" name="db_name" class="form-control" value="<?= $_POST["db_name"] ?? "server_monitor_db"; ?>" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Adatbázis Felhasználó</label>
-                        <input type="text" name="db_user" class="form-control" value="<?= $_POST['db_user'] ?? ''; ?>" required>
+                        <input type="text" name="db_user" class="form-control" value="<?= $_POST["db_user"] ?? ""; ?>" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Adatbázis Jelszó</label>
@@ -257,25 +264,25 @@ if (isset($_GET['delete_installer']) && $step == 2) {
                     <h4 class="alert-heading">Telepítés sikeresen befejeződött!</h4>
                     <p>Az alapértelmezett bejelentkezési adatok:</p>
                     <ul>
-                        <li>**Felhasználónév:** `admin`</li>
-                        <li>**Jelszó:** `admin`</li>
+                        <li>**Felhasználónév:** \`admin\`</li>
+                        <li>**Jelszó:** \`admin\`</li>
                     </ul>
                     <p>A hoszt lista üres, az adminisztrációs felületen adhat hozzá hosztokat.</p>
                     <hr>
-                    <p class="mb-0 text-danger">⚠️ **BIZTONSÁGI FIGYELMEZTETÉS:** Erősen ajánlott az **`install.php`** fájl azonnali **törlése** a szerverről!</p>
+                    <p class="mb-0 text-danger">⚠️ **BIZTONSÁGI FIGYELMEZTETÉS:** Erősen ajánlott az **\`install.php\`** fájl azonnali **törlése** a szerverről!</p>
                 </div>
                 <a href="index.php" class="btn btn-success w-100"><i class="fas fa-sign-in-alt me-2"></i> Tovább a Server-Monitorhoz</a>
                 
                 <script>
                     setTimeout(function() {
-                        if(confirm('Ajánlott a telepítő fájl törlése a biztonság érdekében. Szeretné most törölni?')) {
-                            fetch('?delete_installer=1')
+                        if(confirm("Ajánlott a telepítő fájl törlése a biztonság érdekében. Szeretné most törölni?")) {
+                            fetch("?delete_installer=1")
                                 .then(response => response.json())
                                 .then(data => {
                                     if(data.success) {
-                                        alert('Telepítő sikeresen törölve! Kérjük, frissítsen.');
+                                        alert("Telepítő sikeresen törölve! Kérjük, frissítsen.");
                                     } else {
-                                        alert('Törlés sikertelen. Kérjük, manuálisan törölje az install.php fájlt!');
+                                        alert("Törlés sikertelen. Kérjük, manuálisan törölje az install.php fájlt!");
                                     }
                                 });
                         }
