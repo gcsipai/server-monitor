@@ -52,7 +52,7 @@ A telepítéshez válassza ki a megfelelő Shell szkriptet a szerver operációs
 
 ```bash
 # Adjon futtatási jogosultságot
-chmod +x <telepítő_szkript_neve>.sh
+chmod +x debian13-ubuntu24-openvpn-1.1-install.sh
 
 # Indítsa el a telepítést
 sudo ./debian13-openvpnweb-6.0-install.sh
