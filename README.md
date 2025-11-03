@@ -26,7 +26,7 @@ A projekt főleg Shell szkriptekből (98.2%) áll az automatizáláshoz, kiegés
 | **`debian13-ubuntu24-openvpn-1.1-install.sh`** | **Core Szkript** ⚙️ | **Alap VPN Telepítés:** Tisztán OpenVPN szerver beállítása, **webes komponensek nélkül**. | **Debian 13**, **Ubuntu 24.04+** | 🐧, 📡 |
 | **`debian13-openvpnweb-6.0-install.sh`** | **Webes Szkript** | **VPN + Letöltő Telepítés:** OpenVPN szerver és a kapcsolódó PHP webes eszköz beállítása. | **Debian 13** | 🌐, 🖥️ |
 | **`index.php`** | PHP | **Letöltő Felület** ⬇️: A generált OVPN fájlok letöltési pontja. | N/A | 📄, ✨ |
-| **`vpn_status.php`** | PHP | **Utility fájl** 🗃️: Valószínűleg a konfigurációs fájlok kezeléséhez vagy az aktuális állapot **korlátozott** ellenőrzéséhez használt segédszkript. | N/A | 📈, 🔧 |
+| **`vpn_status.php`** | PHP | **Utility fájl** 🗃️: Konfigurációs fájlok kezeléséhez aktuális állapot **korlátozott** ellenőrzéséhez használt segédszkript. | N/A | 📈, 🔧 |
 | **`config.php`** | PHP | **Webes Konfiguráció** 🔑: A PHP felület működéséhez szükséges útvonalak és beállítások tárolása. | N/A | 🔒, 🛠️ |
 
 ---
